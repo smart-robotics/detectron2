@@ -11,6 +11,8 @@ from torch import nn
 from detectron2.utils.comm import get_world_size, is_main_process
 from detectron2.utils.logger import log_every_n_seconds
 
+def my_print():
+    print("Hello")
 
 class DatasetEvaluator:
     """

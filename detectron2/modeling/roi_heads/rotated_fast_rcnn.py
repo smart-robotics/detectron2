@@ -179,7 +179,7 @@ class RROIHeads(StandardROIHeads):
         """
         super().__init__(**kwargs)
         assert (
-            not self.mask_on and not self.keypoint_on
+            not self.keypoint_on
         ), "Mask/Keypoints not supported in Rotated ROIHeads."
         assert not self.train_on_pred_boxes, "train_on_pred_boxes not implemented for RROIHeads!"
 
@@ -257,7 +257,16 @@ class RROIHeads(StandardROIHeads):
 
             if has_gt:
                 sampled_targets = matched_idxs[sampled_idxs]
-                proposals_per_image.gt_boxes = targets_per_image.gt_boxes[sampled_targets]
+                # proposals_per_image.gt_boxes = targets_per_image.gt_boxes[sampled_targets]
+                # We index all the attributes of targets that start with "gt_"
+                # and have not been added to proposals yet (="gt_classes").
+                # NOTE: here the indexing waste some compute, because heads
+                # like masks, keypoints, etc, will filter the proposals again,
+                # (by foreground/background, or number of keypoints in the image, etc)
+                # so we essentially index the data twice.
+                for trg_name, trg_value in targets_per_image.get_fields().items():
+                    if trg_name.startswith("gt_") and not proposals_per_image.has(trg_name):
+                        proposals_per_image.set(trg_name, trg_value[sampled_targets])
 
             num_bg_samples.append((gt_classes == self.num_classes).sum().item())
             num_fg_samples.append(gt_classes.numel() - num_bg_samples[-1])

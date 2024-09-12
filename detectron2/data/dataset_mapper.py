@@ -141,6 +141,25 @@ class DatasetMapper:
             instances.gt_boxes = instances.gt_masks.get_bounding_boxes()
         dataset_dict["instances"] = utils.filter_empty_instances(instances)
 
+    
+    def _transform_rotated_annotations(self, dataset_dict, transforms, image_shape):
+        # USER: Modify this if you want to keep them for some reason.
+        for anno in dataset_dict["annotations"]:
+            if not self.use_instance_mask:
+                anno.pop("segmentation", None)
+            if not self.use_keypoint:
+                anno.pop("keypoints", None)
+
+        # USER: Implement additional transformations if you have other types of data
+        annos = [
+            utils.transform_rotated_instance_annotations(obj, transforms, image_shape)
+            for obj in dataset_dict.pop("annotations")
+            if obj.get("iscrowd", 0) == 0
+        ]
+        instances = utils.annotations_to_instances_rotated(annos, image_shape, mask_format=self.instance_mask_format)
+
+        dataset_dict["instances"] = utils.filter_empty_instances(instances)
+
     def __call__(self, dataset_dict):
         """
         Args:
@@ -153,7 +172,6 @@ class DatasetMapper:
         # USER: Write your own image loading if it's not from a file
         image = utils.read_image(dataset_dict["file_name"], format=self.image_format)
         utils.check_image_size(dataset_dict, image)
-
         # USER: Remove if you don't do semantic/panoptic segmentation.
         if "sem_seg_file_name" in dataset_dict:
             sem_seg_gt = utils.read_image(dataset_dict.pop("sem_seg_file_name"), "L").squeeze(2)
@@ -186,6 +204,9 @@ class DatasetMapper:
             return dataset_dict
 
         if "annotations" in dataset_dict:
-            self._transform_annotations(dataset_dict, transforms, image_shape)
+            if len(dataset_dict["annotations"][0]['bbox']) == 5:
+                self._transform_rotated_annotations(dataset_dict, transforms, image_shape)
+            else:
+                self._transform_annotations(dataset_dict, transforms, image_shape)
 
         return dataset_dict

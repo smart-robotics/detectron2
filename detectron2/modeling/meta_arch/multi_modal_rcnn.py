@@ -46,8 +46,6 @@ class TextFeatureExtractor(torch.nn.Module):
         self.fpn_keys = fpn_keys
         self.interpolation_mode = interpolation_mode
 
-        self.device = device
-
         self.remapper = nn.Sequential(
             torch.nn.Linear(output_shape, math.prod(expected_output_shape), device=device),
             nn.LeakyReLU()
@@ -59,6 +57,11 @@ class TextFeatureExtractor(torch.nn.Module):
         self.fpn_convs = nn.ModuleDict()
         for i, k in enumerate(self.fpn_keys[:-1]):
             self.fpn_convs[k] = torch.nn.ConvTranspose2d(in_channels=1, out_channels=1, kernel_size=2**(num_fpn_layers-i-1), stride=2**(num_fpn_layers-i-1), device=device)
+
+    @property
+    def device(self):
+        assert len(self.remapper) > 0, "remapper is empty!"
+        return self.remapper[0].weight.device
 
     def forward(self, batched_inputs: list[str], feature_shapes: dict[str, tuple]):
         """Forward pass for the text encoder.
